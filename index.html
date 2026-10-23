@@ -575,8 +575,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-  (async () => {
+<script> (async () => {
 'use strict';
 /* ===== BACKEND SETTINGS (developer only - players never see this) =====
    Paste your Firebase web config here. Leave apiKey empty to use the built-in fallback. */
@@ -2606,7 +2605,7 @@ const MODE_INFO = {
   tdm: { name: 'TEAM DEATHMATCH', sub: '3 VS 3  -  FIRST TO 15 ELIMINATIONS' },
   br: { name: 'BATTLE ROYALE', sub: 'SQUAD  -  5 SQUADS OF 3  -  REVIVE UP TO 4X' }
 };
-/* ===================== VAULT: weapons, uniforms, headgear, operators, maps ===================== */
+  /* ===================== VAULT: weapons, uniforms, headgear, operators, maps ===================== */
 const BASEW = [Object.assign({}, WEAPONS[0]), Object.assign({}, WEAPONS[1])];
 const WCAT = [
   { id: 'ar', slot: 0, name: 'AR-01 VIPER', price: 0, model: 'M4A1', d: 'Balanced starter rifle', st: {} },
@@ -3842,7 +3841,7 @@ const NG_L = {
   bkill: ['Ba ku isa ba!', 'Kar ku gudu!', 'Soja don fall! Ha ha!', 'Dem don chop am! Next!', 'Another one don waste!'],
   bmourn: ['Aaaa aaaaa walaha!', 'Walai! Me I go kill am!', 'Dem don kill our man! Shoot dem!', 'Ah! Dem don waste Musa! Revenge!', 'Hold dem! No let dem pass!']
 };
-/* Recorded Nigerian voice: line text -> clip. Add a new recording by adding its line here and in NG_VOX_DATA. */
+/* Recorded Nigerian voice: line text -> clip. Add a new recording: put its mp3 in the voice/ folder, add its name to NG_VOX.keys, and its line here. */
 const NG_VOX = {
   map: {
     'Fire dem! Fire dem! No wahala, ride on, ride on!': 'fire',
@@ -3863,19 +3862,14 @@ const NG_VOX = {
   ttsFallback: false, // false = robot voice never speaks battle lines; true = lines with no recording use the old robot voice
   els: {}, cur: null, endAt: 0
 };
+NG_VOX.keys = ["fire", "left", "backup", "finish", "down", "hit", "bandit", "bandit2", "ku", "baku", "kar", "walai"];   // each name is a file in the voice/ folder: voice/<name>.mp3
 (function () {
-  const D = window.NG_VOX_DATA || {};
-  for (const k in D) { try { const a = new Audio(D[k]); a.preload = 'auto'; NG_VOX.els[k] = a; } catch (e) {} }
+  for (const k of NG_VOX.keys) { try { const a = new Audio('voice/' + k + '.mp3'); a.preload = 'auto'; NG_VOX.els[k] = a; } catch (e) {} }
 })();
 function ngVoxLoad() {
   if (NG_VOX.loading || !actx) return; NG_VOX.loading = true; NG_VOX.buf = NG_VOX.buf || {};
-  const D = window.NG_VOX_DATA || {};
-  for (const k in D) {
-    try {
-      const bin = atob(D[k].split(',')[1]), u8 = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      actx.decodeAudioData(u8.buffer, (b) => { NG_VOX.buf[k] = b; }, () => {});
-    } catch (e) {}
+  for (const k of NG_VOX.keys) {
+    try { fetch('voice/' + k + '.mp3').then((r) => r.arrayBuffer()).then((ab) => actx.decodeAudioData(ab, (b) => { NG_VOX.buf[k] = b; }, () => {})).catch(() => {}); } catch (e) {}
   }
 }
 function ngClip(txt) {
@@ -5206,6 +5200,6 @@ requestAnimationFrame(frame);
 setTimeout(() => { if (curSeason !== 1) preloadSeason(curSeason); }, 1500);
 try { const hm = location.hash.match(/room=(\w+)/); if (hm) { $('onlineBtn').click(); $('olCode').value = hm[1]; olCreateJoin(false); } } catch (e) {}
 })();
-</script>
+          </script>
 </body>
-      </html>
+  </html>
