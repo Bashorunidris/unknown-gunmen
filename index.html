@@ -317,6 +317,28 @@
   #bMore  { --w: 42; right: calc(262px + env(safe-area-inset-right, 0px)); bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
   #bHeal  { --w: 56; right: calc(120px + env(safe-area-inset-right, 0px)); bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }
   #bFireL { --w: 70; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(176px + env(safe-area-inset-bottom, 0px)); border-color: var(--red); font-size: calc(12px * var(--bs)); }
+
+  /* ===== v7: map at the left edge, settings at the right edge, crouch/slide always visible ===== */
+  #radar { left: calc(10px + env(safe-area-inset-left, 0px)) !important; }
+  #bPause { left: auto !important; right: calc(10px + env(safe-area-inset-right, 0px)) !important; }
+  #ammoBox { right: calc(58px + env(safe-area-inset-right, 0px)) !important; }
+  #bMic, #bReact { left: auto !important; right: calc(10px + env(safe-area-inset-right, 0px)); }
+  #bMic { top: calc(52px + env(safe-area-inset-top, 0px)); } #bReact { top: calc(96px + env(safe-area-inset-top, 0px)); }
+  #reactWheel { left: auto !important; right: calc(58px + env(safe-area-inset-right, 0px)); top: calc(52px + env(safe-area-inset-top, 0px)); }
+  #reactFeed { right: calc(58px + env(safe-area-inset-right, 0px)) !important; top: calc(52px + env(safe-area-inset-top, 0px)) !important; }
+  html.ingame:not(.more) #bCrouch, html.ingame:not(.more) #bSlide { display: flex !important; }
+  html:not(.ingame):not(.editing) .btn, html:not(.ingame):not(.editing) #bCrouch, html:not(.ingame):not(.editing) #bSlide { display: none !important; }
+  #bMore { display: none !important; }
+  #bCrouch.on, #bSlide.on { background: #1a5fd1; border-color: #fff; }
+  #bAuto { flex-direction: column; gap: 2px; line-height: 1; } #bAuto small { font-size: 8px; letter-spacing: 1px; opacity: .9; }
+  #bAuto.on { background: #1a5fd1; border-color: #fff; } #bAuto:not(.on) { opacity: .6 !important; }
+  #bAuto.fire { background: #d93a3a !important; border-color: #fff !important; animation: autoPulse .25s infinite alternate; }
+  @keyframes autoPulse { to { transform: scale(1.12); box-shadow: 0 0 14px #ff3b3b; } }
+  #cross.lock .tick { background: #ff3b3b; opacity: 1; box-shadow: 0 0 6px #ff3b3b; }
+  #autoTag { position: absolute; left: 50%; top: calc(50% + 30px); transform: translateX(-50%); font-size: 11px; font-weight: 900; letter-spacing: 3px; color: #ff5a4a; text-shadow: 0 1px 4px #000; opacity: 0; transition: opacity .1s; pointer-events: none; }
+  #autoTag.on { opacity: 1; }
+  #bGren { --w: 52; right: calc(270px + env(safe-area-inset-right, 0px)); bottom: calc(100px + env(safe-area-inset-bottom, 0px)); border-color: #ffb02e; flex-direction: column; gap: 2px; line-height: 1; }
+  #bGren small { font-size: 12px; font-weight: 900; color: #ffd84a; } #bGren.empty { opacity: .4 !important; }
 </style>
 </head>
 <body>
@@ -342,6 +364,7 @@
   <div class="br-only" id="zoneWarn"></div>
   <div id="banner"></div>
   <div id="callout"></div>
+  <div id="autoTag">AUTO FIRE</div>
   <canvas id="radar" width="248" height="248"></canvas>
   <div id="msnPop"><button class="x" id="msnPopX">X</button><b id="msnPopT"></b><p id="msnPopP"></p></div>
 </div>
@@ -357,6 +380,7 @@
 <button class="btn" id="bSwap">SWAP</button>
 <button class="btn" id="bSlide">SLIDE</button>
 <button class="btn" id="bAuto">AUTO</button>
+<button class="btn" id="bGren">FRAG<small>3</small></button>
 <button class="btn" id="bMore">&middot;&middot;&middot;</button>
 <button class="btn br-only" id="bHeal">HEAL</button>
 <button class="btn br-only" id="bUse">PICK UP</button>
@@ -443,8 +467,8 @@
     <div class="ms-col small">
       <div class="tabs"><button class="tab on">RANKED</button><button class="tab" data-online="1">MATCHING</button><button class="tab" data-toast="Peak mode coming in a later update">PEAK</button></div>
       <div class="ms-cards">
-        <button class="mcard g-r1" data-online="1"><b>OVERDRIVE - RANKED</b><span>Iron District</span></button>
-        <button class="mcard g-r2" data-online="1"><b>BATTLE ROYALE - RANKED</b><span>Iron District</span></button>
+        <button class="mcard g-r1" data-ranked="tdm"><b>OVERDRIVE - RANKED</b><span>BRONZE - 0 RP</span></button>
+        <button class="mcard g-r2" data-ranked="br"><b>BATTLE ROYALE - RANKED</b><span>BRONZE - 0 RP</span></button>
       </div>
     </div>
     <div class="ms-col">
@@ -552,7 +576,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-(async () => {
+  (async () => {
 'use strict';
 /* ===== BACKEND SETTINGS (developer only - players never see this) =====
    Paste your Firebase web config here. Leave apiKey empty to use the built-in fallback. */
@@ -1168,12 +1192,12 @@ const TEAM_OUTFIT = ['Urban', 'Desert'];
 let LOOKOV = null;
 function banditLookNG() {
   const fem = false;
-  return { head: pickA(['Headtie', 'Headtie', 'Headtie', 'Beanie', 'None']), tieC: pickA([0xb3261e, 0x111111, 0xe0c020, 0x1f4fa3, 0xe8e8e8, 0x008751]),
+  return { head: pickA(['Headtie', 'Headtie', 'Bandana', 'Beanie']), tieC: pickA([0x111111, 0x2a2a2a, 0x4b3a22, 0x6b5232, 0x1f2a1f, 0xb3261e]),
     gun: pickA(['AK-47', 'AK-47', 'AK-47', 'Shotgun']),
-    outfit: pickA(['Bandit Camo', 'Bandit Camo', 'Bandit Black', 'Bandit Jersey', 'Bandit Brown', 'Bandit Denim', 'Bandit Red']),
-    vest: pickA(['#23262b', '#3a2a1c', '#5a1a14', '#1c2a3a', '#4b5232']), fem, hair: pickA(['Short', 'Afro', 'Bald', 'Short']), beard: pickA(['None', 'Stubble', 'Full']),
-    skin: pickA(LIB.SKINS), hairc: pickA(LIB.HAIRC), tat: Math.random() < 0.3, mask: Math.random() < 0.6, scarfC: pickA([0x111111, 0xb3261e, 0x6b5232, 0xe8e8e8]),
-    gog: false, arm: false, bootC: pickA([0x1a1a1a, 0x1f5a2a, 0x3a2a14, 0x5a4a30]), gloveC: -1 };
+    outfit: pickA(['Bandit Black', 'Bandit Camo', 'Bandit Camo', 'Bandit Brown', 'Bandit Black']),
+    vest: pickA(['#23262b', '#1c1f24', '#2e2a22', '#3a2a1c', '#33402b']), fem, hair: pickA(['Short', 'Afro', 'Bald', 'Short']), beard: pickA(['None', 'Stubble', 'Full']),
+    skin: pickA(LIB.SKINS), hairc: pickA(LIB.HAIRC), tat: Math.random() < 0.2, mask: Math.random() < 0.95, scarfC: pickA([0x111111, 0x111111, 0x2a2a2a, 0x4a3b28]),
+    gog: Math.random() < 0.25, arm: false, bootC: pickA([0x111111, 0x1a1a1a, 0x2a2014]), gloveC: pickA([0x111111, -1]) };
 }
 function armyLookNG() {
   const fem = Math.random() < 0.2;
@@ -2249,7 +2273,7 @@ function playerShoot() {
 function handleFire() {
   finishReload();
   const w = WEAPONS[wi];
-  const af = autoTarget(); if ((fireHeld || fireMouse || keys.Enter || af) && (w.auto || fireEdge || af)) playerShoot();
+  const af = autoTarget(); autoFlash(af); if ((fireHeld || fireMouse || keys.Enter || af) && (w.auto || fireEdge || af)) playerShoot();
   fireEdge = false;
 }
 
@@ -2280,30 +2304,56 @@ function endMatch() {
   $('board').innerHTML = '<tr><th>PLAYER</th><th>KILLS</th><th>DEATHS</th></tr>' + rows;
   $('end').classList.remove('hidden'); recStop(false);
 }
-async function startMatch(m) {
-  const mm = m || mode;
-  if (curSeason !== 1) { const ld = $('loading'); ld.classList.remove('hide'); await stage(0.05, 'BUILDING ' + SEASONS[curSeason - 1].name); await buildSeason(curSeason, mm); await stage(1, 'READY'); ld.classList.add('hide'); }
-  startMatchSync(m);
-}
-function startMatchSync(m) {
+const yieldFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 16)));
+async function stageY(p, t) { const f = $('ldFill'), l = $('ldText'); if (f) f.style.width = (p * 100) + '%'; if (l) l.textContent = t; await yieldFrame(); }
+/* match start is split into small steps so the phone loads ONE thing at a time instead of freezing */
+function smPrep(m) {
+  try { grReset(); RK.done = false; } catch (e) {}
+  try { initAudio(); ngVoxLoad(); autoFlash(false); } catch (e) {}
   if (m) mode = m;
   msnCleanup();
   dropReset(); if (!NETM.starting) { NETM.on = false; document.documentElement.classList.remove('online'); } for (const b of bots.concat(brBots)) { b.remote = null; b.disabled = false; b.net = null; }
   initAudio();
   try { const el = document.documentElement, p = el.requestFullscreen && el.requestFullscreen(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
   try { const p = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (p && p.catch) p.catch(() => {}); } catch (e) {}
-  if (mode === 'br') { buildBRWorld(); buildBRBots(); }
-  setWorld(mode);
+}
+function smWorld() { if (mode === 'br') buildBRWorld(); }
+function smBots() { if (mode === 'br') buildBRBots(); }
+function smSetWorld() { setWorld(mode); }
+function smUnits() {
   if (mode === 'br') resetBR();
   else { wUnlocked[0] = true; wUnlocked[1] = true; player.down = false; player.armor = 0; player.h = 1.8; units = [player, ...bots]; $('spectate').style.display = 'none'; resetMatch(); }
   if (mode === 'br' && MSN.pending && !NETM.starting) msnSetup(); else MSN.on = false;
   $('again').textContent = MSN.on ? 'RETRY MISSION' : 'PLAY AGAIN';
+}
+function smFinish(delayRec) {
   enableGyro(); applyUi();
   $('menu').classList.add('hidden'); $('end').classList.add('hidden'); $('settings').classList.add('hidden'); $('modeSel').classList.add('hidden');
   document.documentElement.classList.add('ingame');
   onResize();
   try { ngStart(); } catch (e) {}
-  state = 'playing'; recStart();
+  state = 'playing';
+  if (delayRec) setTimeout(() => { if (state === 'playing') recStart(); }, 4000);   // start the video recorder after the match is smooth
+  else recStart();
+}
+async function startMatch(m) {
+  if (NETM.loadingMatch) return; NETM.loadingMatch = true;
+  const mm = m || mode, ld = $('loading');
+  try {
+    ld.classList.remove('hide'); await stageY(0.05, 'GETTING READY');
+    if (curSeason !== 1) { await stage(0.1, 'BUILDING ' + SEASONS[curSeason - 1].name); await buildSeason(curSeason, mm); await yieldFrame(); }
+    smPrep(m); await stageY(0.3, 'LOADING MAP');
+    smWorld(); await stageY(0.5, 'PLACING SOLDIERS');
+    smBots(); await stageY(0.65, 'SETTING THE SCENE');
+    smSetWorld(); await stageY(0.8, 'ARMING UP');
+    smUnits(); await stageY(0.95, 'READY');
+    smFinish(true);
+    await stageY(1, 'GO');
+  } catch (e) { console.error(e); }
+  finally { NETM.loadingMatch = false; ld.classList.add('hide'); }
+}
+function startMatchSync(m) {   // used by online matches (needs to run in one step)
+  smPrep(m); smWorld(); smBots(); smSetWorld(); smUnits(); smFinish(false);
 }
 function openSettings() {
   if ($('settings').classList.contains('hidden') === false) return;
@@ -2647,7 +2697,14 @@ function autoTarget() {
 function useBestSupply() {
   if (player.hp < 55 && sup.med > 0) useSupply('med'); else if (player.hp < 100 && sup.band > 0) useSupply('band'); else if (player.armor < 75 && sup.plate > 0) useSupply('plate'); else if (player.hp < 100 && sup.med > 0) useSupply('med');
 }
-function syncAuto() { const b = $('bAuto'); if (b) b.classList.toggle('on', !!S.autoFire); }
+function syncAuto() { const b = $('bAuto'); if (b) { b.classList.toggle('on', !!S.autoFire); b.innerHTML = 'AUTO<small>' + (S.autoFire ? 'ON' : 'OFF') + '</small>'; } }
+let autoLit = false;
+function autoFlash(af) {   // lights up the AUTO button and turns the crosshair red while auto fire is shooting
+  af = !!af; if (af === autoLit) return; autoLit = af;
+  const b = $('bAuto'), c = $('cross'), t = $('autoTag');
+  if (b) b.classList.toggle('fire', af); if (c) c.classList.toggle('lock', af); if (t) t.classList.toggle('on', af);
+}
+setInterval(() => { const c = $('bCrouch'), s = $('bSlide'); if (c) c.classList.toggle('on', !!(player && player.crouch)); if (s) s.classList.toggle('on', !!(player && player.sliding)); }, 100);
 /* ---- vault screen ---- */
 let vtTab = 'w';
 const VT_TABS = [['w', 'WEAPONS'], ['uni', 'UNIFORMS'], ['head', 'HEADGEAR'], ['boot', 'BOOTS'], ['glove', 'GLOVES'], ['look', 'LOOK'], ['ops', 'OPERATORS'], ['maps', 'MAPS']];
@@ -2701,6 +2758,7 @@ document.querySelectorAll('[data-vt]').forEach((b) => b.addEventListener('click'
 if (!vOwns('s', curSeason)) curSeason = 1;
 setOp(V.eq.op); applyLoadout(); rebuildHero(); syncAuto();
 
+bindBtn('bGren', () => playerGrenade(), null, false);
 bindBtn('bAuto', () => { S.autoFire = !S.autoFire; saveS(); buildSettings(); syncAuto(); });
 bindBtn('bMore', () => document.documentElement.classList.toggle('more'));
 bindBtn('bHeal', () => useBestSupply());
@@ -2794,6 +2852,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Escape') { if (!$('settings').classList.contains('hidden')) closeSettings(); else if (!$('pauseMenu').classList.contains('hidden')) closePause(); else openPause(); return; }
   if (state !== 'playing') return;
   if (e.code === 'KeyR') startReload();
+  if (e.code === 'KeyG') playerGrenade();
   if (e.code === 'Space') { jump(); e.preventDefault(); }
   if (e.code === 'KeyC') player.crouch = !player.crouch;
   if (e.code === 'KeyQ') swapWeapon();
@@ -2805,7 +2864,28 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('contextmenu', (e) => e.preventDefault());
-document.addEventListener('touchmove', (e) => { if (!e.target.closest || !e.target.closest('.scroll, .pan')) e.preventDefault(); }, { passive: false });
+const canScroll = (t) => { for (let n = t; n && n !== document.body && n.nodeType === 1; n = n.parentElement) { const oy = getComputedStyle(n).overflowY; if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) return true; } return false; };
+document.addEventListener('touchmove', (e) => { if (softRot || !e.target.closest || (!e.target.closest('.scroll, .pan') && !canScroll(e.target))) e.preventDefault(); }, { passive: false });
+/* Portrait phones: the whole game is rotated 90 degrees, so the browser's own scrolling goes the wrong way (this is why the vault,
+   missions and lists would not scroll). Here we scroll them by hand, converting the finger movement to the rotated screen. */
+(function () {
+  let t0 = null, vy = 0, vx = 0, raf = 0, lastDrag = 0;
+  const scr = (n, ax) => { for (; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) { const cs = getComputedStyle(n); if (ax === 'y' ? ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && n.scrollHeight > n.clientHeight + 1) : ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && n.scrollWidth > n.clientWidth + 1)) return n; } return null; };
+  document.addEventListener('touchstart', (e) => { cancelAnimationFrame(raf); if (!softRot || e.touches.length !== 1 || state === 'playing') { t0 = null; return; } const t = e.touches[0]; t0 = { x: gX(t), y: gY(t), el: e.target, ax: null, sc: null }; vx = vy = 0; }, { passive: true, capture: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!t0 || !softRot) return; const t = e.touches[0], cx = gX(t), cy = gY(t), dx = cx - t0.x, dy = cy - t0.y;
+    if (!t0.ax) { if (Math.abs(dx) + Math.abs(dy) < 4) return; t0.ax = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x'; t0.sc = scr(t0.el, t0.ax); }
+    t0.x = cx; t0.y = cy; lastDrag = performance.now();
+    if (t0.sc) { if (t0.ax === 'y') { t0.sc.scrollTop -= dy; vy = dy; } else { t0.sc.scrollLeft -= dx; vx = dx; } }
+  }, { passive: true, capture: true });
+  document.addEventListener('touchend', () => {
+    if (!t0 || !t0.sc) { t0 = null; return; }
+    const el = t0.sc, ax = t0.ax; t0 = null; let v = ax === 'y' ? vy : vx;
+    const step = () => { v *= 0.94; if (Math.abs(v) < 0.4) return; if (ax === 'y') el.scrollTop -= v; else el.scrollLeft -= v; raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+  }, { passive: true, capture: true });
+  document.addEventListener('click', (e) => { if (performance.now() - lastDrag < 300) { e.stopPropagation(); e.preventDefault(); } }, true);   // a scroll swipe must not press BUY or EQUIP
+})();
 addEventListener('mousedown', (e) => {
   if (state !== 'playing') return;
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
@@ -3742,27 +3822,86 @@ const NG = { cd: {}, spoke: 0, streak: 0, t: 0, scanT: 0, ambT: 4, boomT: 18, ch
 const NG_ALLY = ['SGT ADEBAYO', 'CPL OKEKE', 'LT MUSA', 'PTE BASSEY', 'SGT EZE', 'CPL IBRAHIM', 'PTE TARI', 'SGT NNAMDI'];
 const NG_BAND = ['BANDIT', 'BANDIT', 'BANDIT CHIEF', 'BANDIT'];
 const NG_L = {
-  go: ['Oya oya oya! Go go go!', 'Move move move! No dulling!', 'Gbam gbam! Make we go, go go go!', 'Abeg shift! Advance advance!', 'Sharp sharp! Go go go!', 'Oya push! Make dem no breathe!', 'Naija no dey carry last! Go go go!'],
+  go: ['Fire dem! Fire dem! No wahala, ride on, ride on!', 'Oya oya oya! Go go go!', 'Move move move! No dulling!', 'Gbam gbam! Make we go, go go go!', 'Abeg shift! Advance advance!', 'Sharp sharp! Go go go!', 'Oya push! Make dem no breathe!', 'Naija no dey carry last! Go go go!'],
   eyes: ['Bandits dey around. Open your eyes, no dulling!', 'Keep your head, soja! Dem no easy!', 'Stay low, stay sharp. Na wetin we train for!'],
   br: ['Squad! Oya jump! Jump jump jump!', 'Oya go go go! Land sharp sharp!'],
-  kill: ['Gbosa! Dat one don chop am!', 'Correct! You do am!', 'Oga, you too much!', 'Na so! Dem no fit!', 'Clean shot! One bandit don go!', 'E don do! Next one!', 'Dem don see pepper!'],
+  kill: ['Fire dem! Fire dem! No wahala, ride on, ride on!', 'Enemy down! Keep moving, no stop!', 'Gbosa! Dat one don chop am!', 'Correct! You do am!', 'Oga, you too much!', 'Na so! Dem no fit!', 'Clean shot! One bandit don go!', 'E don do! Next one!', 'Dem don see pepper!'],
   head: ['Headshot! Na wa o!', 'Ah! Head don comot!', 'Sniper level! Dem no go forget!'],
-  s2: ['Double! Dem dey run!', 'Two don go! Keep am coming!'], s3: ['Triple! Oga na you be this!', 'Three down! Bandits dey fear!'], s5: ['Na wa o! Bandit killer!', 'Five! Oga, na you dey run this place!'], s8: ['Commander! Dem no fit stand you!', 'Naija soja pass all!'],
-  down: ['Dem don fall! Finish am!', 'He dey ground! Press am!'],
+  s2: ['Double! Dem dey run!', 'Two don go! Keep am coming!'], s3: ['Triple! Oga na you be this!', 'Three down! Bandits dey fear!'], s5: ['Dem no know anything. Today we go finish dem!', 'Na wa o! Bandit killer!', 'Five! Oga, na you dey run this place!'], s8: ['Dem no know anything. Today we go finish dem!', 'Commander! Dem no fit stand you!', 'Naija soja pass all!'],
+  down: ['Enemy down! Keep moving, no stop!', 'Dem don fall! Finish am!', 'He dey ground! Press am!'],
   pdown: ['Man down! Man down! Cover Oga!', 'Oga don fall! Make we pick am!', 'Hold on Oga, we dey come!'],
-  adown: ['Man down! We lost one!', 'Abeg cover am! My brother don fall!'],
-  akill: ['Gbam! One bandit don go!', 'Dat one na ours! Keep pushing!', 'Dem dey fall! Hold the line!'],
-  low: ['Oga, you dey bleed! Take cover!', 'E don do! Cover up, patch yourself!', 'Wahala dey! Find cover now!'],
+  adown: ['I don hit! Medic, medic, I need help!', 'Man down! We lost one!', 'Abeg cover am! My brother don fall!'],
+  akill: ['Enemy down! Keep moving, no stop!', 'Gbam! One bandit don go!', 'Dat one na ours! Keep pushing!', 'Dem dey fall! Hold the line!'],
+  low: ['I don hit! Medic, medic, I need help!', 'Oga, you dey bleed! Take cover!', 'E don do! Cover up, patch yourself!', 'Wahala dey! Find cover now!'],
   reload: ['Reloading o! Cover me!', 'Cover me, I dey reload!', 'Abeg cover! Mag don finish!'],
-  chat: ['Hold the line! Naija no go gree!', 'Watch the flanks! Dem dey sneak!', 'No fear, my people! We dey together!', 'Keep moving! No stand one place!', 'Bandits no get chance today!', 'Stay alert! Dem go try ambush!'],
-  win: ['We don win! Naija no go gree!', 'Victory! Na we dey run this place!', 'Bandits don run! Well done, soja!'],
-  lose: ['Wahala dey! Make we regroup!', 'Dem push us back. We go return!'],
-  fr: ['Contact front! Dem dey your front o!', 'Bandits front! Sharp sharp!'], lf: ['Contact left! Dem dey your left!'], rt: ['Contact right! Dem dey your right!'], bk: ['Oga look back! Dem dey your back!', 'Behind you! Dem dey your back!'],
-  bshout: ['Shoot am! Shoot am!', 'Soja dey here! Kill am!', 'Wetin you dey find for our side?', 'Una no go see road today!', 'Dey there! No run!', 'Na today we go finish una!', 'Oga soja, you don enter wrong place!'],
-  bkill: ['Soja don fall! Ha ha!', 'Dem don chop am! Next!', 'Another one don waste!'],
-  bmourn: ['Dem don kill our man! Shoot dem!', 'Ah! Dem don waste Musa! Revenge!', 'Hold dem! No let dem pass!']
+  chat: ['We need more backup! Push, push, push!', 'Dem dey come from the left! Cover me, cover me!', 'Hold your position, make nobody run!', 'Shoot them, shoot them, shoot them, their mama go cry!', 'Hold the line! Naija no go gree!', 'Watch the flanks! Dem dey sneak!', 'No fear, my people! We dey together!', 'Keep moving! No stand one place!', 'Bandits no get chance today!', 'Stay alert! Dem go try ambush!'],
+  win: ['Dem no know anything. Today we go finish dem!', 'We don win! Naija no go gree!', 'Victory! Na we dey run this place!', 'Bandits don run! Well done, soja!'],
+  lose: ['We need more backup! Push, push, push!', 'Wahala dey! Make we regroup!', 'Dem push us back. We go return!'],
+  fr: ['Contact front! Dem dey your front o!', 'Bandits front! Sharp sharp!'], lf: ['Dem dey come from the left! Cover me, cover me!', 'Contact left! Dem dey your left!'], rt: ['Contact right! Dem dey your right!'], bk: ['Oga look back! Dem dey your back!', 'Behind you! Dem dey your back!'],
+  bshout: ['Aaaa aaaaa walaha!', 'Ku tsaya! Za mu kashe ku!', 'Kar ku gudu!', 'Ba ku isa ba!', 'Walai! Me I go kill am!', 'Shoot am! Shoot am!', 'Soja dey here! Kill am!', 'Wetin you dey find for our side?', 'Una no go see road today!', 'Dey there! No run!', 'Na today we go finish una!', 'Oga soja, you don enter wrong place!'],
+  bkill: ['Ba ku isa ba!', 'Kar ku gudu!', 'Soja don fall! Ha ha!', 'Dem don chop am! Next!', 'Another one don waste!'],
+  bmourn: ['Aaaa aaaaa walaha!', 'Walai! Me I go kill am!', 'Dem don kill our man! Shoot dem!', 'Ah! Dem don waste Musa! Revenge!', 'Hold dem! No let dem pass!']
 };
-const ngPick = (k) => pickA(NG_L[k]);
+/* Recorded Nigerian voice: line text -> clip. Add a new recording by adding its line here and in NG_VOX_DATA. */
+const NG_VOX = {
+  map: {
+    'Fire dem! Fire dem! No wahala, ride on, ride on!': 'fire',
+    'Dem dey come from the left! Cover me, cover me!': 'left',
+    'We need more backup! Push, push, push!': 'backup',
+    'Dem no know anything. Today we go finish dem!': 'finish',
+    'Enemy down! Keep moving, no stop!': 'down',
+    'I don hit! Medic, medic, I need help!': 'hit',
+    'Aaaa aaaaa walaha!': ['bandit', 'bandit2'],   // two takes, picked at random
+    'Ku tsaya! Za mu kashe ku!': 'ku',
+    'Ba ku isa ba!': 'baku',
+    'Kar ku gudu!': 'kar',
+    'Walai! Me I go kill am!': 'walai'
+  },
+  bias: 0.85,        // 0 to 1: how often a recorded line is chosen over a text-only line
+  vol: 1,            // clip loudness 0 to 1
+  gap: 1.5,          // seconds of silence between two clips
+  ttsFallback: false, // false = robot voice never speaks battle lines; true = lines with no recording use the old robot voice
+  els: {}, cur: null, endAt: 0
+};
+(function () {
+  const D = window.NG_VOX_DATA || {};
+  for (const k in D) { try { const a = new Audio(D[k]); a.preload = 'auto'; NG_VOX.els[k] = a; } catch (e) {} }
+})();
+function ngVoxLoad() {
+  if (NG_VOX.loading || !actx) return; NG_VOX.loading = true; NG_VOX.buf = NG_VOX.buf || {};
+  const D = window.NG_VOX_DATA || {};
+  for (const k in D) {
+    try {
+      const bin = atob(D[k].split(',')[1]), u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      actx.decodeAudioData(u8.buffer, (b) => { NG_VOX.buf[k] = b; }, () => {});
+    } catch (e) {}
+  }
+}
+function ngClip(txt) {
+  let k = NG_VOX.map[txt]; if (!k) return false; if (Array.isArray(k)) k = k[Math.floor(Math.random() * k.length)];
+  const t = performance.now() / 1000;
+  if (t < NG_VOX.endAt) return true;                       // one voice at a time; the line still shows as text
+  initAudio(); ngVoxLoad();
+  const b = NG_VOX.buf && NG_VOX.buf[k];
+  try {
+    if (b && actx && abus) {                               // main path: game audio engine (same one the gunshots use)
+      if (actx.state === 'suspended') actx.resume();
+      const s = actx.createBufferSource(), g = actx.createGain(); s.buffer = b; g.gain.value = NG_VOX.vol;
+      s.connect(g); g.connect(abus); s.start();
+      NG_VOX.endAt = t + b.duration + NG_VOX.gap;
+    } else if (NG_VOX.els[k]) {                            // backup path while clips are still decoding
+      const a = NG_VOX.els[k]; a.currentTime = 0; a.volume = NG_VOX.vol;
+      const pr = a.play(); if (pr && pr.catch) pr.catch(() => {});
+      NG_VOX.endAt = t + 4 + NG_VOX.gap;
+    }
+  } catch (e) {}
+  return true;
+}
+const ngPick = (k) => {
+  const a = NG_L[k], rec = a.filter((s) => NG_VOX.map[s]);
+  return (rec.length && Math.random() < NG_VOX.bias) ? pickA(rec) : pickA(a);   // most picks use a line you recorded
+};
 function ngSay(bad, txt, key, cd, voice) {
   const t = performance.now() / 1000;
   if (key) { if (t - (NG.cd[key] || -99) < cd) return false; NG.cd[key] = t; }
@@ -3771,7 +3910,8 @@ function ngSay(bad, txt, key, cd, voice) {
   el.innerHTML = '<small style="color:' + (bad ? '#ff6a5a' : '#7ed957') + '">' + who + '</small><b>' + txt + '</b>';
   el.className = 'on' + (bad ? ' bad' : '');
   clearTimeout(NG.hideT); NG.hideT = setTimeout(() => { el.className = ''; }, 3300);
-  if (voice && typeof voiceOn !== 'undefined' && voiceOn && window.speechSynthesis && t - NG.spoke > 5 && !speechSynthesis.speaking) {
+  if (typeof voiceOn !== 'undefined' && voiceOn && ngClip(txt)) return true;
+  if (NG_VOX.ttsFallback && voice && typeof voiceOn !== 'undefined' && voiceOn && window.speechSynthesis && t - NG.spoke > 5 && !speechSynthesis.speaking) {
     NG.spoke = t;
     try {
       const u = new SpeechSynthesisUtterance(txt), vs = speechSynthesis.getVoices() || [];
@@ -3858,11 +3998,14 @@ function frame(t) {
   const dt = Math.min(0.05, (t - last) / 1000); last = t;
   LIB.tick(t / 1000, dt); netTick(dt);
   { const WA = worlds[curSeason + '-' + mode]; if (WA && WA.holder.visible && state !== 'menu') for (const f of WA.tick) f(t / 1000, dt); }
-  if (state === 'playing') { update(dt); updateHUD(); try { ngTick(dt); radarTick(); } catch (e) {} }
+  if (state === 'playing') { update(dt); updateHUD(); try { ngTick(dt); radarTick(); } catch (e) {} try { grTick(dt); } catch (e) {} try { adTick(dt); } catch (e) {} }
   else if (state === 'paused') { updateFires(dt); }
   else if (state === 'menu') lobbyScene(dt);
   else menuCamera(dt);
+  const _cp = camera.position, _sx = _cp.x, _sy = _cp.y, _sh = (GR && GR.shake) || 0;
+  if (_sh > 0.002) { _cp.x += (Math.random() - 0.5) * _sh; _cp.y += (Math.random() - 0.5) * _sh; }
   renderer.render(scene, camera);
+  if (_sh > 0.002) { _cp.x = _sx; _cp.y = _sy; }
   if (S.showFps) { fpsAcc += dt; fpsN++; if (fpsAcc >= 0.5) { setText('fps', Math.round(fpsN / fpsAcc) + ' FPS'); fpsAcc = 0; fpsN = 0; } }
   requestAnimationFrame(frame);
 }
@@ -3872,8 +4015,8 @@ $('fps').style.display = S.showFps ? 'block' : 'none';
 for (const u of units) placeUnit(u);
 setWorld('lobby');
 /* ===== CONTROL LAYOUT EDITOR (lobby) ===== */
-const CTL_IDS = ['bFireL', 'bFire', 'bJump', 'bAds', 'bReload', 'bCrouch', 'bSlide', 'bSwap', 'bUse', 'bAuto', 'bMore', 'bHeal', 'bPause'];
-let layout = {}; try { layout = JSON.parse(localStorage.getItem('sfx3d_layout')) || {}; } catch (e) {}
+const CTL_IDS = ['bFireL', 'bFire', 'bJump', 'bAds', 'bReload', 'bCrouch', 'bSlide', 'bSwap', 'bUse', 'bAuto', 'bGren', 'bMore', 'bHeal', 'bPause'];
+let layout = {}; try { layout = JSON.parse(localStorage.getItem('sfx3d_layout')) || {}; } catch (e) {} delete layout.bPause;   // settings button now lives at the top right
 let layoutPrefs = Object.assign({ size: 1, alpha: 0.8 }, layout._p || {});
 let editing = false, dragEl = null, dragStart = null, savedLayout = null;
 function applyLayout() {
@@ -3921,7 +4064,12 @@ const NET = { kind: 'none', uid: 'u' + Math.random().toString(36).slice(2, 9), r
 try { NET.name = localStorage.getItem('sfx3d_name') || 'PLAYER' + Math.floor(Math.random() * 90 + 10); } catch (e) {}
 let micOn = false;
 function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
-const ICE = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }].concat(BACKEND.turn || []) } };
+/* Backup relay servers: many phone networks (CGNAT) block direct player-to-player links. These free public relays are for testing;
+   for a real launch put your own TURN servers in BACKEND.turn above. */
+const FREE_TURN = [{ urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }];
+const ICE = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }].concat((BACKEND.turn && BACKEND.turn.length) ? BACKEND.turn : FREE_TURN) } };
 /* Online engine: no account or setup needed. Rooms, random match and voice all run player-to-player. */
 function peerAdapter() {
   let peer = null, isHost = false, hostConn = null, meta = null, joinedAt = Date.now(), micStream = null, dummy = null;
@@ -3984,7 +4132,7 @@ function peerAdapter() {
     const onErr = (e) => { if (e && e.type === 'peer-unavailable' && String(e.message).indexOf(hostId) >= 0) fin(false, 'nohost'); };
     peer.on('error', onErr);
     conn = peer.connect(hostId, { reliable: true });
-    tm = setTimeout(() => fin(false, 'timeout'), timeout || 7000);
+    tm = setTimeout(() => fin(false, 'timeout'), timeout || 14000);
     conn.on('open', () => conn.send({ t: 'hello', name: NET.name }));
     conn.on('data', (d) => {
       if (!d) return;
@@ -4003,7 +4151,7 @@ function peerAdapter() {
       for (let round = 0; round < 2; round++) {
         await mkPeer(guestId()); let free = 0;
         for (let i = 1; i <= 6; i++) {
-          try { await connectHost(PRE + 'quick-' + i, 4500); return 'joined'; }
+          try { await connectHost(PRE + 'quick-' + i, 10000); return 'joined'; }
           catch (why) { if (why === 'nohost' && !free) free = i; }
         }
         try { peer.destroy(); } catch (e) {} peer = null; hostConn = null;
@@ -4036,7 +4184,8 @@ function peerAdapter() {
 function netLeave() { try { NET.impl && NET.impl.leave(); } catch (e) {} NET.impl = null; NET.room = null; NET.quick = false; NET.players = []; NETM.on = false; micOn = false; document.documentElement.classList.remove('online'); try { micUI(); } catch (e) {} }
 
 async function makeAdapter() {
-  try { if (!window.Peer) await loadScript('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'); } catch (e) {}
+  for (const u of ['https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js', 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js']) { if (window.Peer) break; try { await loadScript(u); } catch (e) {} }
+  if (!window.Peer && !(BACKEND.firebase && BACKEND.firebase.apiKey)) throw 'nolib';
   const cfg = BACKEND.firebase;
   if (cfg && cfg.apiKey && cfg.databaseURL) {
     if (!window.firebase) { await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js'); await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js'); }
@@ -4158,7 +4307,7 @@ function netHooks() {
   NET.cb.closed = () => { netLeave(); showRoomUI(); olRender(); olMsg('The host left the room.'); };
 }
 function saveNetName() { NET.name = ($('olName').value || NET.name).replace(/[<>&]/g, '').trim().slice(0, 14) || NET.name; try { localStorage.setItem('sfx3d_name', NET.name); } catch (e) {} }
-function failMsg(e) { return e === 'nohost' ? 'Room not found. Check the code and try again.' : e === 'full' ? 'That room is full.' : e === 'timeout' ? 'Could not connect. Check your internet and try again.' : e === 'busy' ? 'No open random rooms right now. Try again in a moment.' : 'Could not connect to online play. Check your internet.'; }
+function failMsg(e) { return e === 'nohost' ? 'Room not found. Check the code and try again.' : e === 'full' ? 'That room is full.' : e === 'timeout' ? 'Could not connect. Check your internet and try again.' : e === 'busy' ? 'No open random rooms right now. Try again in a moment.' : e === 'nolib' ? 'Online play could not load. Check your internet or turn off any ad blocker.' : 'Could not connect to online play. Check your internet.'; }
 async function olCreateJoin(create) {
   if (NET.room) return;
   const code0 = $('olCode').value.trim();
@@ -4268,7 +4417,7 @@ function showReact(e) {
 }
 
 /* ===== MATCH REPLAYS: recorded from the game screen, saved on the device, optional Cloudflare upload ===== */
-let rec = null, rpUrl = null;
+let rec = null, rpUrl = null, recSaving = null;
 const RPD = { db: null };
 function rpDB() { return new Promise((res, rej) => { if (RPD.db) return res(RPD.db); try { const q = indexedDB.open('ng_replays', 1); q.onupgradeneeded = () => q.result.createObjectStore('r', { keyPath: 'id' }); q.onsuccess = () => { RPD.db = q.result; res(RPD.db); }; q.onerror = () => rej(q.error); } catch (e) { rej(e); } }); }
 async function rpAll() { try { const d = await rpDB(); return await new Promise((res) => { const q = d.transaction('r').objectStore('r').getAll(); q.onsuccess = () => res((q.result || []).sort((a, b) => b.ts - a.ts)); q.onerror = () => res([]); }); } catch (e) { return []; } }
@@ -4278,26 +4427,32 @@ function recStart() {
   recStop(true);
   try {
     if (!canvas.captureStream || !window.MediaRecorder) return;
-    const mt = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find((t) => MediaRecorder.isTypeSupported(t)); if (!mt) return;
+    const mt = ['video/webm;codecs=vp8', 'video/webm', 'video/webm;codecs=vp9', 'video/mp4'].find((t) => MediaRecorder.isTypeSupported(t)); if (!mt) return;
     const r = { chunks: [], t0: Date.now(), mode, online: !!NETM.on, mt, discard: false };
     const cs = canvas.captureStream(30); if (arec) arec.stream.getAudioTracks().forEach((t) => cs.addTrack(t));
     r.mr = new MediaRecorder(cs, { mimeType: mt, videoBitsPerSecond: 1500000 });
     r.mr.ondataavailable = (e) => { if (e.data && e.data.size) r.chunks.push(e.data); };
     r.mr.onstop = async () => {
-      const dur = Math.round((Date.now() - r.t0) / 1000);
-      if (r.discard || dur < 8 || !r.chunks.length) return;
-      const rr = { id: 'r' + r.t0, ts: r.t0, dur, mode: r.mode, online: r.online, result: r.result || '', mt, blob: new Blob(r.chunks, { type: mt }) };
-      await rpPut(rr);
-      const all = await rpAll(); for (const o of all.slice(8)) await rpDel(o.id);
-      rpUpload(rr);
+      try {
+        const dur = Math.round((Date.now() - r.t0) / 1000);
+        if (r.discard || dur < 8 || !r.chunks.length) return;
+        const rr = { id: 'r' + r.t0, ts: r.t0, dur, mode: r.mode, online: r.online, result: ($('endTitle') ? $('endTitle').textContent : ''), mt, blob: new Blob(r.chunks, { type: mt }) };
+        await rpPut(rr);
+        const all = await rpAll(); for (const o of all.slice(8)) await rpDel(o.id);
+        rpUpload(rr);
+      } finally {
+        if (r.res) r.res();                                   // the newest replay is now saved
+        if ($('rpBox').classList.contains('on') && $('rpVid').style.display !== 'block') rpOpen();   // refresh the list if it is open
+      }
     };
     r.mr.start(2000); rec = r;
   } catch (e) { rec = null; }
 }
 function recStop(discard) {
   const r = rec; rec = null; if (!r) return;
-  r.discard = !!discard; r.result = discard ? '' : ($('endTitle') ? $('endTitle').textContent : '');
-  try { if (r.mr.state !== 'inactive') r.mr.stop(); } catch (e) {}
+  r.discard = !!discard;
+  if (!discard) recSaving = new Promise((res) => { r.res = res; setTimeout(res, 10000); });   // rpOpen waits for this
+  try { if (r.mr.state !== 'inactive') r.mr.stop(); else if (r.res) r.res(); } catch (e) { if (r.res) r.res(); }
 }
 async function rpUpload(r) {
   const u = BACKEND.replayUpload; if (!u || r.link) return r.link || '';
@@ -4311,6 +4466,7 @@ const rpExt = (r) => r.mt.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
 function rpClosePlayer() { const v = $('rpVid'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); v.style.display = 'none'; if (rpUrl) { URL.revokeObjectURL(rpUrl); rpUrl = null; } }
 async function rpOpen() {
   $('rpBox').classList.add('on'); rpClosePlayer();
+  if (recSaving) { $('rpInfo').textContent = 'Saving your latest replay...'; try { await recSaving; } catch (e) {} recSaving = null; }
   const all = await rpAll(), box = $('rpList');
   $('rpInfo').textContent = all.length ? 'Your last matches are saved on this device.' : 'No replays yet. Play a match and it is saved automatically.';
   box.innerHTML = all.map((r) => '<div class="olp rpi" data-id="' + r.id + '"><b>' + (r.mode === 'br' ? 'BATTLE ROYALE' : 'TEAM DEATHMATCH') + (r.online ? ' &#127760;' : '') + (r.result ? ' - ' + r.result : '') + '<small>' + new Date(r.ts).toLocaleString() + ' - ' + Math.floor(r.dur / 60) + ':' + String(r.dur % 60).padStart(2, '0') + '</small></b><span><button data-a="w">WATCH</button><button data-a="s">SAVE</button><button data-a="h">SHARE</button><button data-a="d">X</button></span></div>').join('');
@@ -4329,13 +4485,13 @@ async function rpAct(id, a) {
 }
 $('rpBtn').addEventListener('click', rpOpen);
 $('rpClose').addEventListener('click', () => { rpClosePlayer(); $('rpBox').classList.remove('on'); });
-$('rpEnd').addEventListener('click', () => setTimeout(rpOpen, 600));
+$('rpEnd').addEventListener('click', () => rpOpen());
 $('rpList').addEventListener('click', (e) => { const b = e.target.closest('button[data-a]'); if (b) rpAct(b.closest('.rpi').dataset.id, b.dataset.a); });
 /* ===== MUSIC: licensed tracks from BACKEND.music, else a built-in original military march ===== */
 const MU = { on: true, started: false, t: 0, step: 0, timer: null, el: null, i: 0, mbus: null, nz: null };
 try { MU.on = localStorage.getItem('ng_music') !== '0'; } catch (e) {}
 const MU_MEL = [7, 7, 12, 12, 16, 12, 7, 0, 5, 5, 9, 12, 14, 12, 11, 7], MU_BASS = [-12, -5, -12, -5, -7, 0, -5, -12];
-const muHz = (s) => 261.63 * Math.pow(2, s / 12), muVol = () => document.documentElement.classList.contains('ingame') ? 0.22 : 0.5;
+const muHz = (s) => 261.63 * Math.pow(2, s / 12), muVol = () => document.documentElement.classList.contains('ingame') ? 0 : 0.5;   // lobby music only; silent during battle
 function muNote(t, hz, dur, type, vol, cut) {
   const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
   o.type = type; o.frequency.value = hz; f.type = 'lowpass'; f.frequency.value = cut;
@@ -4346,7 +4502,16 @@ function muDrum(t, snare) {
   if (snare) { const s = actx.createBufferSource(); s.buffer = MU.nz; const f = actx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1500; const g = actx.createGain(); g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1); s.connect(f); f.connect(g); g.connect(MU.mbus); s.start(t); s.stop(t + 0.12); }
   else { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.15); g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2); o.connect(g); g.connect(MU.mbus); o.start(t); o.stop(t + 0.22); }
 }
+const MU_BUGLE = [0, 0, 7, 12, 16, 12, 7, 0, 7, 7, 12, 16, 19, 16, 12, 7], MU_BUGLE_BASS = [-12, -12, -5, -12, -12, -5, -7, -12];
+function muStepB(t, n) {   // second built-in track: bugle fanfare over a marching snare cadence (original)
+  const k = n % 64;
+  if (k % 16 === 0 || k % 16 === 8) muDrum(t, false);
+  if ([2, 3, 6, 7, 10, 11, 14, 15].indexOf(k % 16) >= 0 || k % 4 === 0) muDrum(t, true);
+  if (k % 4 === 0) muNote(t, muHz(MU_BUGLE[k / 4]), (k % 8 === 0) ? 0.55 : 0.3, 'square', 0.1, 2400);
+  if (k % 8 === 0) muNote(t, muHz(MU_BUGLE_BASS[k / 8]), 0.7, 'triangle', 0.3, 500);
+}
 function muStep(t, n) {
+  if (Math.floor(n / 128) % 2 === 1) return muStepB(t, n);   // every 2 loops the track changes
   const k = n % 64;
   if (k % 8 === 0) muDrum(t, false); if (k % 8 === 4) muDrum(t, false);
   if (k % 2 === 0 || k % 8 === 7) muDrum(t, true);
@@ -4837,6 +5002,204 @@ function msnEndScreen() {
   $('spectate').style.display = 'none'; $('again').textContent = 'RETRY MISSION'; $('end').classList.remove('hidden');
 }
 
+/* ===== v9: GRENADES, BOMB BLASTS, RANKED POINTS ===== */
+var GR = { n: 3, cd: 0, list: [], fx: [], shake: 0, blastT: 7 };
+var RK = { on: false, done: false };
+const GR_SPH = new THREE.SphereGeometry(1, 12, 10), GR_BALL = new THREE.MeshStandardMaterial({ color: 0x3d4a2a, roughness: 0.7 });
+function grLabel() { const b = $('bGren'); if (b) { b.innerHTML = 'FRAG<small>' + GR.n + '</small>'; b.classList.toggle('empty', GR.n <= 0); } }
+function grReset() {
+  for (const g of GR.list) scene.remove(g.mesh);
+  for (const f of GR.fx) { scene.remove(f.m); f.m.material.dispose(); }
+  GR.list = []; GR.fx = []; GR.n = 3; GR.cd = 0; GR.shake = 0; GR.blastT = 7; grLabel();
+}
+function grBoom(x, z, vol) {   // loud explosion, panned left/right by where it happens, delayed by distance
+  if (!actx || !abus) return;
+  const dx = x - player.x, dz = z - player.z, d = Math.hypot(dx, dz) || 0.01, yaw = player.yaw + (player.ryaw || 0);
+  const pan = clamp((dx / d) * Math.cos(yaw) - (dz / d) * Math.sin(yaw), -1, 1);
+  const gain = clamp(vol * (1.15 - d * 0.014), 0.12, 1), t0 = actx.currentTime + Math.min(0.7, d / 260);
+  const len = Math.floor(actx.sampleRate * 1.4), buf = actx.createBuffer(1, len, actx.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2);
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(2400, t0); lp.frequency.exponentialRampToValueAtTime(140, t0 + 1.2);
+  const g = actx.createGain(); g.gain.value = gain;
+  const o = actx.createOscillator(), og = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(95, t0); o.frequency.exponentialRampToValueAtTime(28, t0 + 0.7);
+  og.gain.setValueAtTime(gain * 0.9, t0); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
+  const pn = actx.createStereoPanner ? actx.createStereoPanner() : null; if (pn) pn.pan.value = pan;
+  src.connect(lp); lp.connect(g); o.connect(og);
+  const out = pn || abus; g.connect(out); og.connect(out); if (pn) pn.connect(abus);
+  src.start(t0); o.start(t0); o.stop(t0 + 1);
+}
+function grFx(x, y, z, sc) {   // fireball + rising smoke + sparks
+  const fl = new THREE.Mesh(GR_SPH, new THREE.MeshBasicMaterial({ color: 0xffa030, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const sm = new THREE.Mesh(GR_SPH, new THREE.MeshBasicMaterial({ color: 0x2b2b2b, transparent: true, opacity: 0.6, depthWrite: false }));
+  fl.position.set(x, y + 0.6, z); sm.position.set(x, y + 0.8, z); scene.add(fl); scene.add(sm);
+  GR.fx.push({ m: fl, t: 0, life: 0.5, s: sc * 2.4, k: 0 }, { m: sm, t: 0, life: 2.6, s: sc * 3, k: 1 });
+  spark(x, y + 0.5, z, 16, 0xffb050, 1.6 * sc, false); spark(x, y + 0.3, z, 10, 0x6b5a40, 1.2 * sc, false);
+}
+function grExplode(g) {
+  grBoom(g.x, g.z, 1); grFx(g.x, g.y, g.z, 1);
+  const d0 = Math.hypot(g.x - player.x, g.z - player.z); GR.shake = Math.max(GR.shake, clamp(0.5 * (1 - d0 / 28), 0, 0.5));
+  if (NETM.on) return;
+  const R = 7.5;
+  for (const u of units.slice()) {
+    if (!u.alive || u.remote) continue;
+    if (u.team === g.team && u !== g.owner) continue;           // no friendly fire (you can still hurt yourself)
+    const dx = u.x - g.x, dy = (u.y || 0) + 1.1 - g.y, dz = u.z - g.z, d = Math.hypot(dx, dy, dz) || 0.01;
+    if (d > R) continue;
+    let dmg = 150 * Math.pow(1 - d / R, 1.3) + 6;
+    const bt = worldRay(g.x, g.y + 0.3, g.z, dx / d, dy / d, dz / d, d); if (bt < d - 0.4) dmg *= 0.3;   // walls and cover soften the blast
+    dmg = Math.round(dmg); if (dmg < 4) continue;
+    try { applyDamage(u, dmg, g.owner || player, false); } catch (e) {}
+  }
+}
+function grThrow(owner, x, y, z, vx, vy, vz) {
+  const m = new THREE.Mesh(GR_SPH, GR_BALL); m.scale.setScalar(0.09); m.position.set(x, y, z); scene.add(m);
+  GR.list.push({ owner, team: owner.team, x, y, z, vx, vy, vz, t: 2.4, mesh: m });
+}
+function playerGrenade() {
+  if (state !== 'playing' || !player.alive || player.down || GR.cd > 0 || GR.n <= 0 || NETM.on) return;
+  GR.n--; GR.cd = 0.9; grLabel();
+  const yaw = player.yaw + player.ryaw, pit = player.pitch + player.rp, sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pit), cp = Math.cos(pit);
+  const dx = -sy * cp, dy = sp, dz = -cy * cp, v = 15;
+  grThrow(player, camera.position.x + dx * 0.5, camera.position.y - 0.1 + dy * 0.5, camera.position.z + dz * 0.5, dx * v, dy * v + 3.5, dz * v);
+  noise(0.12, 0.25, 1800); vibrate(20);
+}
+function grBlast(x, z) {   // bombs and mortars landing around the battlefield (no damage, loud and shaky)
+  grBoom(x, z, 1.2); grFx(x, 0.2, z, 1.8);
+  const d = Math.hypot(x - player.x, z - player.z); GR.shake = Math.max(GR.shake, clamp(0.35 * (1 - d / 50), 0, 0.35));
+}
+function grTick(dt) {
+  GR.cd = Math.max(0, GR.cd - dt); GR.shake *= Math.exp(-5 * dt);
+  for (let i = GR.list.length - 1; i >= 0; i--) {
+    const g = GR.list[i]; g.t -= dt; g.vy -= 17 * dt;
+    let nx = g.x + g.vx * dt, ny = g.y + g.vy * dt, nz = g.z + g.vz * dt;
+    const fl = floorAt(nx, nz, ny) + 0.1;
+    if (ny < fl) { ny = fl; g.vy = -g.vy * 0.35; if (Math.abs(g.vy) < 1) g.vy = 0; g.vx *= 0.65; g.vz *= 0.65; }
+    if (blockedAt(nx, nz, 0.12, ny - 0.08)) { g.vx *= -0.35; g.vz *= -0.35; nx = g.x; nz = g.z; }
+    g.x = nx; g.y = ny; g.z = nz; g.mesh.position.set(nx, ny, nz);
+    if (g.t <= 0) { scene.remove(g.mesh); GR.list.splice(i, 1); grExplode(g); }
+    else if (g.t < 1.6 && !g.warned && g.team !== player.team && player.alive && Math.hypot(g.x - player.x, g.z - player.z) < 11) { g.warned = true; try { ngSay(false, 'Grenade! Take cover!', 'gren', 3, false); } catch (e) {} }
+  }
+  for (let i = GR.fx.length - 1; i >= 0; i--) {
+    const f = GR.fx[i]; f.t += dt; const k = f.t / f.life;
+    if (k >= 1) { scene.remove(f.m); f.m.material.dispose(); GR.fx.splice(i, 1); continue; }
+    if (f.k === 0) { f.m.scale.setScalar(f.s * (0.3 + 0.7 * k)); f.m.material.opacity = 0.95 * (1 - k); }
+    else { f.m.scale.setScalar(f.s * (0.4 + 0.6 * k)); f.m.position.y += dt * 1.3; f.m.material.opacity = 0.6 * (1 - k); }
+  }
+  if (!NETM.on) {   // soldiers and bandits throw grenades at enemies 9 to 26 m away
+    for (const b of units) {
+      if (!b.isBot || !b.alive || b.down || b.disabled || b.remote) continue;
+      b._gt = (b._gt === undefined ? 8 + Math.random() * 14 : b._gt) - dt;
+      if (b._gt > 0 || GR.list.length > 6) continue;
+      b._gt = 16 + Math.random() * 16;
+      let best = null, bd = 99;
+      for (const e of units) { if (e === b || !e.alive || e.down || e.team === b.team) continue; const d = Math.hypot(e.x - b.x, e.z - b.z); if (d > 9 && d < 26 && d < bd) { bd = d; best = e; } }
+      if (!best) continue;
+      const dx = best.x - b.x + (Math.random() - 0.5) * 3, dz = best.z - b.z + (Math.random() - 0.5) * 3, d = Math.hypot(dx, dz), v = Math.sqrt(d * 17) * 1.02;
+      grThrow(b, b.x, (b.y || 0) + 1.5, b.z, (dx / d) * v * 0.707, v * 0.707, (dz / d) * v * 0.707);
+    }
+  }
+  GR.blastT -= dt;
+  if (GR.blastT <= 0) { GR.blastT = 7 + Math.random() * 9; const a = Math.random() * PI * 2, r = 20 + Math.random() * 26; grBlast(player.x + Math.cos(a) * r, player.z + Math.sin(a) * r); }
+}
+/* ranked points (saved on this device) */
+const RK_TIERS = [[0, 'BRONZE'], [100, 'SILVER'], [250, 'GOLD'], [450, 'PLATINUM'], [700, 'DIAMOND'], [1000, 'ELITE COMMANDER']];
+const rkTier = (rp) => { let t = RK_TIERS[0][1]; for (const x of RK_TIERS) if (rp >= x[0]) t = x[1]; return t; };
+const rkLabel = () => rkTier(profile.rp || 0) + ' - ' + (profile.rp || 0) + ' RP';
+function rkRefresh() { document.querySelectorAll('.g-r1 span, .g-r2 span').forEach((e) => { e.textContent = rkLabel(); }); }
+function rkApply(pts) {
+  RK.done = true; profile.rp = Math.max(0, (profile.rp || 0) + pts); saveProfile(); rkRefresh();
+  const e = $('endSub'); if (e) e.textContent += '   RANKED ' + (pts >= 0 ? '+' : '') + pts + ' RP  (' + rkLabel() + ')';
+}
+document.querySelectorAll('[data-ranked]').forEach((b) => b.addEventListener('click', () => { RK.on = true; MSN.pending = null; selectedMode = b.dataset.ranked; startMatch(selectedMode); }));
+$('deploy').addEventListener('click', () => { RK.on = false; });
+$('mbGo').addEventListener('click', () => { RK.on = false; });
+{ const _rl = renderLobby; renderLobby = function () { _rl.apply(this, arguments); rkRefresh(); }; }
+rkRefresh(); grLabel();
+/* ===== v10: BILLBOARDS AND BANNER ADS IN EVERY MAP ===== */
+const AD_PHONE = '+234 907 813 9367', AD_WA_LINK = 'wa.me/2349078139367';
+/* >>> PUT YOUR PAID ADS HERE. Each ad: title, line, bg (colour), accent (colour), img (optional picture link) <<< */
+const NG_ADS = [
+  { title: 'YOUR AD HERE', line: 'Put your brand in front of every player', bg: '#0b3d1e', accent: '#ffd84a' },
+  { title: 'ADVERTISE WITH US', line: 'Billboards - Banners - Shout-outs', bg: '#5a1212', accent: '#ffffff' },
+  { title: 'SMALL BUSINESS? BIG BUSINESS?', line: 'There is space for you. Negotiate your price', bg: '#10305a', accent: '#7ee06a' }
+];
+const AD_IMGS = {};
+function adImg(u) { if (!AD_IMGS[u]) { const i = new Image(); i.crossOrigin = 'anonymous'; i.src = u; AD_IMGS[u] = i; } return AD_IMGS[u]; }
+function adFit(c, txt, maxW, size, weight) { do { c.font = weight + ' ' + size + 'px Arial, Helvetica, sans-serif'; size -= 2; } while (c.measureText(txt).width > maxW && size > 12); }
+function adDraw(cv, ad) {
+  const c = cv.getContext('2d'), W = cv.width, H = cv.height, banner = W / H > 3;
+  const gr = c.createLinearGradient(0, 0, W, H); gr.addColorStop(0, ad.bg || '#0b3d1e'); gr.addColorStop(1, '#050505'); c.fillStyle = gr; c.fillRect(0, 0, W, H);
+  if (ad.img) { const im = adImg(ad.img); if (im.complete && im.naturalWidth) c.drawImage(im, 0, 0, W, H); }
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  const green = '#25D366';
+  if (!banner) {
+    const fh = H * 0.3;
+    c.fillStyle = 'rgba(255,255,255,.55)'; adFit(c, 'ADVERTISEMENT', W * 0.3, 26, 'bold'); c.fillText('ADVERTISEMENT', W / 2, H * 0.07);
+    c.fillStyle = ad.accent || '#fff'; adFit(c, ad.title, W * 0.9, 120, '900'); c.fillText(ad.title, W / 2, H * 0.28);
+    c.fillStyle = '#fff'; adFit(c, ad.line, W * 0.88, 46, 'bold'); c.fillText(ad.line, W / 2, H * 0.5);
+    c.fillStyle = green; c.fillRect(0, H - fh, W, fh);
+    c.fillStyle = '#05240f'; adFit(c, 'DM US ON WHATSAPP TO ADVERTISE HERE', W * 0.92, 38, '900'); c.fillText('DM US ON WHATSAPP TO ADVERTISE HERE', W / 2, H - fh * 0.72);
+    c.fillStyle = '#04210d'; adFit(c, AD_PHONE, W * 0.8, 84, '900'); c.fillText(AD_PHONE, W / 2, H - fh * 0.3);
+  } else {
+    const bw = W * 0.44;
+    c.fillStyle = ad.accent || '#fff'; adFit(c, ad.title, W * 0.52, 80, '900'); c.textAlign = 'left'; c.fillText(ad.title, W * 0.03, H * 0.36);
+    c.fillStyle = '#fff'; adFit(c, ad.line, W * 0.52, 34, 'bold'); c.fillText(ad.line, W * 0.03, H * 0.76);
+    c.fillStyle = green; c.fillRect(W - bw, 0, bw, H); c.textAlign = 'center';
+    c.fillStyle = '#05240f'; adFit(c, 'DM US ON WHATSAPP', bw * 0.92, 40, '900'); c.fillText('DM US ON WHATSAPP', W - bw / 2, H * 0.28);
+    c.fillStyle = '#04210d'; adFit(c, AD_PHONE, bw * 0.92, 70, '900'); c.fillText(AD_PHONE, W - bw / 2, H * 0.68);
+  }
+  c.strokeStyle = ad.accent || '#fff'; c.lineWidth = 8; c.strokeRect(4, 4, W - 8, H - 8);
+}
+
+var AD = { sets: {}, t: 0, idx: 0 };
+const AD_POST = new THREE.MeshLambertMaterial({ color: 0x4a4f55 }), AD_FRAME = new THREE.MeshLambertMaterial({ color: 0x15181c });
+function adMakePanel(g, x, z, w, h, y, i) {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = Math.round(1024 * h / w);
+  const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
+  const ad = NG_ADS[i % NG_ADS.length]; adDraw(cv, ad); tex.needsUpdate = true;
+  const rot = Math.atan2(-x, -z), grp = new THREE.Group(); grp.position.set(x, 0, z); grp.rotation.y = rot;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, fog: false });
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, h + 0.3, 0.16), AD_FRAME); frame.position.set(0, y + h / 2, 0); grp.add(frame);
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); front.position.set(0, y + h / 2, 0.09); grp.add(front);
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); back.position.set(0, y + h / 2, -0.09); back.rotation.y = Math.PI; grp.add(back);
+  const cx = Math.cos(rot), sx = -Math.sin(rot);
+  for (const sgn of [-1, 1]) {
+    const px = x + cx * sgn * (w / 2 - 0.3), pz = z + sx * sgn * (w / 2 - 0.3), ph = y + h;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, ph, 0.28), AD_POST); post.position.set(px, ph / 2, pz); g.add(post);
+    addCollider(px, pz, 0.5, 0.5, ph);
+  }
+  g.add(grp);
+  return { cv, tex, i };
+}
+function adBuild(key, kind) {
+  const half = kind === 'br' ? 82 : 36, g = new THREE.Group(), set = { g, panels: [] }; g.visible = false; scene.add(g); AD.sets[key] = set;
+  const c = half - 6, e = half - 3; let n = 0;
+  for (const p of [[-c, -c], [c, -c], [c, c], [-c, c]]) set.panels.push(adMakePanel(g, p[0], p[1], 7, 3.5, 3.4, n++));   // billboards in the 4 corners
+  for (const p of [[0, -e], [e, 0], [0, e], [-e, 0]]) set.panels.push(adMakePanel(g, p[0], p[1], 8, 1.6, 2.4, n++));      // banners in the middle of each edge
+}
+function adSync(m) {
+  const key = curSeason + '-' + m;
+  if (m !== 'lobby' && !AD.sets[key]) { try { adBuild(key, m); } catch (e) { console.error(e); } }
+  for (const k in AD.sets) AD.sets[k].g.visible = (m !== 'lobby' && k === key);
+}
+function adTick(dt) {   // every 7 seconds each board shows the next ad
+  AD.t += dt; if (AD.t < 7) return; AD.t = 0; AD.idx++;
+  const key = curSeason + '-' + mode, set = AD.sets[key]; if (!set) return;
+  set.panels.forEach((p, j) => { adDraw(p.cv, NG_ADS[(AD.idx + p.i) % NG_ADS.length]); p.tex.needsUpdate = true; });
+}
+{ const _sw = setWorld; setWorld = function (m) { _sw.apply(this, arguments); adSync(m); }; }
+{ const _br = showBREnd, _ms = msnEndScreen, _em = endMatch;   // save the replay when a Battle Royale / mission ends (only team deathmatch did before)
+  showBREnd = function () {
+    const r = _br.apply(this, arguments); recStop(false);
+    if (RK.on && !RK.done && !MSN.on) { const pl = sqPlace[0] || 1; rkApply((pl === 1 ? 35 : pl === 2 ? 18 : pl === 3 ? 8 : -10) + player.kills * 2); }
+    return r;
+  };
+  endMatch = function () {
+    const was = state === 'playing'; _em.apply(this, arguments);
+    if (was && RK.on && !RK.done) { const t = $('endTitle').textContent; rkApply(t === 'VICTORY' ? 25 + Math.min(player.kills, 10) : t === 'DRAW' ? 5 : -12); }
+  };
+  msnEndScreen = function () { const r = _ms.apply(this, arguments); recStop(false); return r; }; }
 await stage(1, 'READY');
 $('loading').classList.add('hide');
 requestAnimationFrame(frame);
@@ -4845,4 +5208,4 @@ try { const hm = location.hash.match(/room=(\w+)/); if (hm) { $('onlineBtn').cli
 })();
 </script>
 </body>
-  </html>
+      </html>
